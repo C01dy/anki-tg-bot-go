@@ -1,18 +1,29 @@
 package main
 
 import (
-	"anki-bot/internal/config"
+	"anki-bot/internal/adapter/repository"
 	"anki-bot/internal/adapter/telegram"
+	"anki-bot/internal/config"
+	"anki-bot/internal/usecase"
 	"fmt"
 	"log"
+	"strings"
 )
 
 func main() {
 	cfg, err := config.GetConfig(".env")
 	if err != nil {
-		panic(err)
+		log.Fatalf("Config error: %v", err)
 	}
+
+	sqliteRepo, err := repository.NewSQLiteRepo(cfg.DB)
+	if err != nil {
+		log.Fatalf("Failed to init db: %v", err)
+	}
+
 	client := telegram.New("api.telegram.org", cfg.TelegramToken)
+
+	vocabularyService := usecase.NewVocabularyService(sqliteRepo, client)
 
 	offset := 0
 	fmt.Println("Bot has been started")
@@ -25,21 +36,39 @@ func main() {
 		}
 
 		for _, upd := range updates {
-			if upd.Message != nil {
-				fmt.Printf("Пользователь пишет: %s\n", upd.Message.Text)
+			offset = upd.ID + 1 
 
-				replyText := "Ты сказал: " + upd.Message.Text
+			if upd.Message == nil {
+				continue
+			}
 
-				err := client.SendMessage(upd.Message.Chat.ID, replyText)
-				if err != nil {
-					fmt.Printf("Не удалось отправить ответ: %v\n", err)
+			chatID := upd.Message.Chat.ID
+			text := upd.Message.Text
+
+			log.Printf("[%d] Message from %d: %s", upd.ID, chatID, text)
+
+			if strings.HasPrefix(text, "/add") {
+				parts := strings.Fields(text)
+				
+				if len(parts) < 3 {
+					client.SendMessage(chatID, "Используй формат: /add <en> <ru>")
+					continue
 				}
+
+				en := parts[1]
+				ru := parts[2]
+
+				err := vocabularyService.AddWord(chatID, en, ru)
+				if err != nil {
+					log.Printf("Failed to add word: %v", err)
+					client.SendMessage(chatID, "Ошибка при сохранении слова ❌")
+				} else {
+					client.SendMessage(chatID, fmt.Sprintf("Слово '%s' сохранено! ✅", en))
+				}
+				continue
 			}
-			offset = upd.ID + 1
-			if upd.Message != nil {
-				fmt.Printf("[%d] Message by %d: %s\n", upd.ID, upd.Message.Chat.ID, upd.Message.Text)
-			}
+
+			client.SendMessage(chatID, "Я пока умею только добавлять слова через /add")
 		}
 	}
-
 }

@@ -12,6 +12,7 @@ type SQLiteRepo struct {
 }
 
 func NewSQLiteRepo(dbPath string) (*SQLiteRepo, error) {
+	fmt.Printf("Trying to open database at: %s\n", dbPath)
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't open db: %w", err)
@@ -45,6 +46,11 @@ func (r *SQLiteRepo) Save(w entity.Word, userID int64) error {
 	}
 
     return nil
+}
+
+// TODO: Начать реализацию алгоритма
+func (r *SQLiteRepo) GetForReview(userID int64) ([]entity.Word, error) {
+	return nil, nil 
 }
 
 func (r *SQLiteRepo) init() error {
