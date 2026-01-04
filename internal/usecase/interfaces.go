@@ -5,7 +5,9 @@ import "anki-bot/internal/entity"
 
 type WordRepository interface {
 	Save(w entity.Word, userID int64) error 
-	GetForReview(userID int64) ([]entity.Word, error)  
+	Update(w entity.Word, userID int64) error
+	GetForReview(userID int64) ([]entity.Word, error)
+	GetWord(userID int64, en string) (entity.Word, error)  
 }
 
 type BotSender interface {
